@@ -1,5 +1,6 @@
 import json
 import os 
+from dataclasses import dataclass, asdict, field
 from datetime import datetime, date
 
 
@@ -65,7 +66,46 @@ class PCRecord:
     historial_mantenimiento: List[MaintenanceEntry] = field(default_factory=list)
     created_at : str = field(default_factory = lambda: datetime.utcnow().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    # ------------------------------------------------
+    # Validacion y ayudantes
+    # ------------------------------------------------
+    def __post_init__(self):
+        self.service_tag = normalize_service_tag(self.service_tag)
+        self.modelo = self.modelo.strip()
+        self.locacion = self.locacion.strip()
+        self.rol = self.rol.strip()
+        # Validar las fechas
+        iso_date_parse(self.garantia_dell_fin)
+        # Normalizar el estado (strings compatibles)
+        if isinstance(self.estado, str):
+            try:
+                self.estado = Status(self.estado)
+            except ValueError as e:
+                raise ValueError(
+                    'Estado invalido, Usa uno de: '
+                    + ', '.join(s.value for s in Status)
+                ) from e
+            # validar el historial
+            if self.historial_mantenimiento is None:
+                self.historial_mantenimiento = []
     
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), ensure_ascii=False, indent=2)
+    
+    @staticmethod
+    def from_json(raw: str) -> 'PCRecord':
+        data = json.loads(raw)
+        # Convertir historial a objetos 
+        hist = [MaintenanceEntry(**m) for m in data.get('historial_mantenimiento', [])]
+        data['historial_mantenimiento'] = hist
+        data['estado'] = Status(data['estado']) # asegurar Enum
+        return PCRecord(**data)
+    
+    def touch(self):
+        self.updated_at = datetime.utcnow().isoformat()
+    
+
 
 # ------------------------------------------------
 # Almacenamineto 
