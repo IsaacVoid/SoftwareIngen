@@ -1,6 +1,71 @@
 import json
 import os 
+from datetime import datetime, date
 
+
+# ------------------------------------------------
+# Utilidades y validaciones
+# ------------------------------------------------
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data', 'pcs')
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DATE_FMT = '%Y-%m-%d' 
+
+def iso_date_parse(value: str) -> date:
+    '''Parsea "YYYY-MM-DD" a date con un mensaje claro en caso de falla'''
+    try:
+        return datetime.strptime(value, DATE_FMT).date()
+    except ValueError as e:
+        raise ValueError(
+            f'Fecha invalida "{value}". Usa formato YYYY-MM-DD'
+        ) from e
+    
+def normalize_service_tag(tag: str) -> str:
+    '''Normalizar y validar Service Tag (alfa-numerico, guias opcionales).'''
+    tag = tag.strip().upper()
+    if not tag:
+        raise ValueError('Service Tag no puede estar vacío.')
+    # Las letras, digitos y guiones estan permitidos.
+    for ch in tag:
+        if not (ch.isalnum() or ch == '='):
+            raise ValueError('Service Tag solo puede contener letras, digitos o "-".')
+    return tag
+
+class Status(str, Enum):
+    desplegado = 'desplegado'
+    en_stock = 'en_stock'
+    pendiente_disposal = 'pendiente_disposal'
+    disposed = 'disposed'
+
+@dataclass
+class MaintenanceEntry: 
+    descripcion: str 
+    fecha: str # YYYY-MM-DD
+    tecnico: str
+    
+    def __post_init__(self):
+        self.descripcion = self.descripcion.strip()
+        self.tecnico = self.tecnico.strip()
+        # Validacion de fecha 
+        iso_date_parse(self.fecha)
+        if not self.descripcion:
+            raise ValueError('La descripcion de mantenimineto no puede estar vacía.')
+        if not self.tecnico:
+            raise ValueError('El tecnico no puede estar vació.')
+
+@dataclass
+class PCRecord:
+    service_tag: str
+    modelo: str
+    garantia_dell_fin: str
+    estado: Status
+    locacion: str
+    rol: str
+    historial_mantenimiento: List[MaintenanceEntry] = field(default_factory=list)
+    created_at : str = field(default_factory = lambda: datetime.utcnow().isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    
 
 # ------------------------------------------------
 # Almacenamineto 
