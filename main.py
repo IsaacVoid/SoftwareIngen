@@ -2,6 +2,8 @@ import json
 import os 
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, date
+from enum import Enum
+from typing import List, Optional
 
 
 # ------------------------------------------------
@@ -134,14 +136,14 @@ class FileStore:
         with open(path, 'r', encoding='utf-8') as f:
             return  PCRecord.from_json(f.read())
         
-    def delete(Self, service_tag: str) -> None: 
+    def delete(self, service_tag: str) -> None: 
         path = self._path(service_tag)
         if os.path.exist(path):
             os.remove(path)
         else:
             raise FileNotFoundError(f'No existe registro para el ST "{service_tag}".')    
         
-    def list_all(Self) -> List[PCRecord]:
+    def list_all(self) -> List[PCRecord]:
         records: List[PCRecord] = []
         for name in sorted(os.listdir(self.base_dir)):
             if name.lower().endswith('.json'):
@@ -152,7 +154,142 @@ class FileStore:
                         print(f'[WARN] No se pudo cargar "{name}": {e}')
         return records 
     
+# ------------------------------------------------
+# UI de consola 
+# ------------------------------------------------
 
+def prompt(msg: str) -> str:
+    return input(msg).strip()
+
+def print_record(record: PCRecord) -> None:
+    print("\n== PC ==")
+    print(f"Service Tag:           {record.service_tag}")
+    print(f"Modelo:                {record.modelo}")
+    print(f"Fin garantía DELL:     {record.garantia_dell_fin}")
+    print(f"Estado:                {record.estado.value}")
+    print(f"Locación:              {record.locacion}")
+    print(f"Rol:                   {record.rol}")
+    print(f"Creado:                {record.created_at}")
+    print(f"Actualizado:           {record.updated_at}")
+    print("Historial de mantenimiento:")
+    if not record.historial_mantenimiento:
+        print("  (vacío)")
+    else:
+        for i, m in enumerate(record.historial_mantenimiento, start=1):
+            print(f"  {i}. {m.fecha} · {m.tecnico} · {m.descripcion}")
+    print()
+
+def action_create(store: FileStore) -> None:
+    try:
+        print("\n[CREAR PC]")
+        tag = normalize_service_tag(prompt("Service Tag: "))
+        if store.exists(tag):
+            print("Ya existe un registro con ese Service Tag.")
+            return
+        modelo = prompt("Modelo del equipo: ")
+        garantia_fin = prompt("Fin de garantía DELL (YYYY-MM-DD): ")
+        iso_date_parse(garantia_fin)
+        print("Estados válidos:")
+        print("  - desplegado\n  - en_stock\n  - pendiente_disposal\n  - disposed")
+        estado = prompt("Estado: ")
+        locacion = prompt("Locación/Área: ")
+        rol = prompt("Rol (usuario, estación de producción, etc.): ")
+        record = PCRecord(
+            service_tag=tag,
+            modelo=modelo,
+            garantia_dell_fin=garantia_fin,
+            estado=estado,
+            locacion=locacion,
+            rol=rol,
+        )
+        store.save(record)
+        print("Registro creado.")
+    except Exception as e:
+        print(f"Error al crear: {e}")
+        
+def action_read(store: FileStore) -> None:
+    try:
+        tag = prompt("Service Tag a consultar: ")
+        record = store.load(tag)
+        print_record(record)
+    except Exception as e:
+        print(f"Error al leer: {e}")
+
+def action_update(store: FileStore) -> None:
+    try:
+        tag = prompt("Service Tag a actualizar: ")
+        record = store.load(tag)
+        print("Deja en blanco para mantener el valor actual.")
+        modelo = prompt(f"Modelo [{record.modelo}]: ") or record.modelo
+        garantia = prompt(f"Fin garantía DELL [{record.garantia_dell_fin}]: ") or record.garantia_dell_fin
+        # valida si se cambió
+        if garantia != record.garantia_dell_fin:
+            iso_date_parse(garantia)
+        estado = prompt(f"Estado [{record.estado.value}]: ") or record.estado.value
+        locacion = prompt(f"Locación [{record.locacion}]: ") or record.locacion
+        rol = prompt(f"Rol [{record.rol}]: ") or record.rol
+        updated = PCRecord(
+            service_tag=record.service_tag,
+            modelo=modelo,
+            garantia_dell_fin=garantia,
+            estado=estado,
+            locacion=locacion,
+            rol=rol,
+            historial_mantenimiento=record.historial_mantenimiento,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+        store.save(updated)
+        print("Registro actualizado.")
+    except Exception as e:
+        print(f"Error al actualizar: {e}")
+
+def action_delete(store: FileStore) -> None:
+    try:
+        tag = prompt("Service Tag a eliminar: ")
+        confirm = prompt(f"¿Seguro que deseas eliminar '{tag}'? (si/no): ")
+        if confirm.lower() in {"si", "sí", "s", "yes", "y"}:
+            store.delete(tag)
+            print("Registro eliminado.")
+        else:
+            print("(Cancelado)")
+    except Exception as e:
+        print(f"Error al eliminar: {e}")
+    
+def action_list(store: FileStore) -> None:
+    records = store.list_all()
+    if not records:
+        print("No hay registros aún.")
+        return
+    print(f"\nSe encontraron {len(records)} registro(s):")
+    for r in records:
+        print(f"- {r.service_tag}: {r.modelo} · {r.estado.value} · Garantía fin {r.garantia_dell_fin}")
+
+def action_add_maintenance(store: FileStore) -> None:
+    try:
+        tag = prompt("Service Tag: ")
+        record = store.load(tag)
+        print("\n[Nueva entrada de mantenimiento]")
+        fecha = prompt("Fecha (YYYY-MM-DD): ")
+        iso_date_parse(fecha)
+        tecnico = prompt("Técnico: ")
+        descripcion = prompt("Descripción: ")
+        entry = MaintenanceEntry(descripcion=descripcion, fecha=fecha, tecnico=tecnico)
+        record.historial_mantenimiento.append(entry)
+        store.save(record)
+        print("Mantenimiento agregado.")
+    except Exception as e:
+        print(f"Error al agregar mantenimiento: {e}")
+
+MENU = {
+    "1": ("Crear PC", action_create),
+    "2": ("Leer PC (por Service Tag)", action_read),
+    "3": ("Actualizar PC", action_update),
+    "4": ("Eliminar PC", action_delete),
+    "5": ("Listar PCs", action_list),
+    "6": ("Agregar entrada de mantenimiento", action_add_maintenance),
+    "0": ("Salir", None),
+}
 
 # Funcion principal (iniciadora)
 def main ():
