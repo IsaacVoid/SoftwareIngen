@@ -1,0 +1,17 @@
+{
+  "service_tag": "AMD0102",
+  "modelo": "Latitude 7400",
+  "garantia_dell_fin": "2027-07-13",
+  "estado": "desplegado",
+  "locacion": "Usuario",
+  "rol": "Usuario",
+  "historial_mantenimiento": [
+    {
+      "descripcion": "Mantenumiento preventivo del equipo. Limpieza externa y sopleteo del equipo. Cambio de pasta termica",
+      "fecha": "2025-10-17",
+      "tecnico": "Isaac Espinosa"
+    }
+  ],
+  "created_at": "2025-10-18T01:33:49.848756",
+  "updated_at": "2025-10-18T01:45:23.981782+00:00"
+}

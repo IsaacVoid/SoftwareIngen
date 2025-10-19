@@ -1,7 +1,7 @@
 import json
 import os 
 from dataclasses import dataclass, asdict, field
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -21,7 +21,7 @@ def iso_date_parse(value: str) -> date:
         return datetime.strptime(value, DATE_FMT).date()
     except ValueError as e:
         raise ValueError(
-            f'Fecha invalida "{value}". Usa formato YYYY-MM-DD'
+            f'Fecha invalida "{value}". Usa formato YYYY-MM-DD Ej. 2025-10-17'
         ) from e
     
 def normalize_service_tag(tag: str) -> str:
@@ -31,7 +31,7 @@ def normalize_service_tag(tag: str) -> str:
         raise ValueError('Service Tag no puede estar vacío.')
     # Las letras, digitos y guiones estan permitidos.
     for ch in tag:
-        if not (ch.isalnum() or ch == '='):
+        if not (ch.isalnum() or ch == '-'):
             raise ValueError('Service Tag solo puede contener letras, digitos o "-".')
     return tag
 
@@ -66,8 +66,8 @@ class PCRecord:
     locacion: str
     rol: str
     historial_mantenimiento: List[MaintenanceEntry] = field(default_factory=list)
-    created_at : str = field(default_factory = lambda: datetime.utcnow().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     # ------------------------------------------------
     # Validacion y ayudantes
@@ -89,13 +89,15 @@ class PCRecord:
                     + ', '.join(s.value for s in Status)
                 ) from e
             # validar el historial
-            if self.historial_mantenimiento is None:
-                self.historial_mantenimiento = []
+        if self.historial_mantenimiento is None:
+            self.historial_mantenimiento = []
     
     def to_json(self) -> str:
-        return json.dumps(asdict(self), ensure_ascii=False, indent=2)
-    
-    @staticmethod
+        data = asdict(self)
+        if isinstance(self.estado, Status):
+            data["estado"] = self.estado.value
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
     def from_json(raw: str) -> 'PCRecord':
         data = json.loads(raw)
         # Convertir historial a objetos 
@@ -105,7 +107,7 @@ class PCRecord:
         return PCRecord(**data)
     
     def touch(self):
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = datetime.now(timezone.utc).isoformat()
     
 
 
@@ -118,11 +120,12 @@ class FileStore:
         self.base_dir = base_dir
         os.makedirs(self.base_dir, exist_ok=True)
 
-    def _path(self, service_tag: str) -> bool:
-        return os.path.exist(self._path(service_tag)) 
+    def _path(self, service_tag: str) -> str:
+        fname = f"{normalize_service_tag(service_tag)}.json"
+        return os.path.join(self.base_dir, fname)
     
-    def exist(self, service_tag: str) -> bool:
-        return os.path.exist(self._path(service_tag))
+    def exists(self, service_tag: str) -> bool:
+        return os.path.exists(self._path(service_tag))
     
     def save(self, record: PCRecord) -> None:
         record.touch()
@@ -131,14 +134,14 @@ class FileStore:
 
     def load(self, service_tag: str) -> PCRecord:
         path = self._path(service_tag)
-        if not os.path.exists(path):
+        if not os.path.exists(path): 
             raise FileNotFoundError(f'No existe registro para este ST "{service_tag}".')
         with open(path, 'r', encoding='utf-8') as f:
             return  PCRecord.from_json(f.read())
         
     def delete(self, service_tag: str) -> None: 
         path = self._path(service_tag)
-        if os.path.exist(path):
+        if os.path.exists(path):
             os.remove(path)
         else:
             raise FileNotFoundError(f'No existe registro para el ST "{service_tag}".')    
@@ -147,7 +150,7 @@ class FileStore:
         records: List[PCRecord] = []
         for name in sorted(os.listdir(self.base_dir)):
             if name.lower().endswith('.json'):
-                with open(os.path.join(self.base_dir, name), 'r', encoding='uft-8') as f:
+                with open(os.path.join(self.base_dir, name), 'r', encoding='utf-8') as f:
                     try:
                         records.append(PCRecord.from_json(f.read()))
                     except Exception as e:
