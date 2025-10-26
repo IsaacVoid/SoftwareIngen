@@ -1,0 +1,57 @@
+# ---- Entorno virtual ----
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- Configuración local ----
+.env
+.env.*
+!*.example  # conserva .env.example en el repo
+
+# ---- Archivos de base de datos ----
+*.db
+*.sqlite3
+
+# ---- Logs / cache ----
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+.cache/
+.mypy_cache/
+.pytest_cache/
+coverage/
+.coverage
+htmlcov/
+
+# ---- Archivos de compilación ----
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- IDEs / editores ----
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# ---- Uvicorn / FastAPI ----
+*.pid
+*.sock
+
+# ---- Alembic ----
+alembic.ini
+alembic/versions/*.pyc
+alembic/versions/__pycache__/
+
+# ---- Otros ----
+*.pem
+*.crt
+*.key
