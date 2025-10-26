@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Depends
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
@@ -29,7 +30,15 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
-    response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+    if request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
+        )
+    else:
+        response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
     return response
 
 
@@ -40,6 +49,20 @@ app.include_router(notes.router)
 
 
 
-@app.get("/me")
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return """
+    <html>
+      <head><title>Auth+Notes</title></head>
+      <body style="font-family: system-ui; max-width: 640px; margin: 40px auto;">
+        <h1>Auth+Notes API</h1>
+        <p>Ve a <a href="/docs">/docs</a> para probar el registro, login y notas.</p>
+      </body>
+    </html>
+    """
+
+
+"""
 def me(user=Depends(get_current_user)):
     return {"message": f"Hola, {user.name or user.email}!"}
+"""
