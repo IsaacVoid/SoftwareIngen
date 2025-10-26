@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 import jwt
@@ -40,7 +41,7 @@ class TokenPair:
 
 
 
-    def _encode(payload: dict, key: str, minutes: int | None = None, days: int | None = None) -> str:
+    def _encode(payload: dict, key: str, minutes: Optional[int] = None, days: Optional[int] = None) -> str:
         now = datetime.now(timezone.utc)
         exp = now + (timedelta(minutes=minutes) if minutes else timedelta(days=days or 0))
         payload = {**payload, "iat": int(now.timestamp()), "exp": int(exp.timestamp())}
@@ -56,7 +57,7 @@ def create_access_token(user_id: str) -> str:
 
 
 
-def create_refresh_token(user_id: str, jti: str | None = None) -> str:
+def create_refresh_token(user_id: str, jti: Optional[str] = None) -> str:
     return _encode({"sub": user_id, "jti": jti or uuid4().hex, "typ": "refresh"}, settings.REFRESH_SECRET_KEY, days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
 
 

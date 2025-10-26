@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
@@ -6,7 +7,7 @@ from datetime import datetime
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=12, max_length=128)
-    name: str | None = Field(default=None, max_length=120)
+    name: Optional[str] = Field(default=None, max_length=120)
 
 
 class LoginIn(BaseModel):
@@ -17,7 +18,7 @@ class LoginIn(BaseModel):
 class MeOut(BaseModel):
     id: str
     email: EmailStr
-    name: str | None
+    name: Optional[str]
 
 
 # Nota

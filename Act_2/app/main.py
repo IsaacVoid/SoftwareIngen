@@ -1,8 +1,7 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
-from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import auth, notes
 from app.deps import get_current_user
 
@@ -24,7 +23,14 @@ app.add_middleware(
     )
 
 # Security headers
-app.add_middleware(SecurityHeadersMiddleware)
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+    return response
 
 
 # Routers

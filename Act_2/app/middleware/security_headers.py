@@ -15,4 +15,5 @@ async def dispatch(self, request, call_next):
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     #  Se puede ajustar
     response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
-    return response∫
+
+    return response
