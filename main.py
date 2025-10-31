@@ -15,8 +15,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 DATE_FMT = '%Y-%m-%d' 
 
-def iso_date_parse(value: str) -> date:
-    '''Parsea "YYYY-MM-DD" a date con un mensaje claro en caso de falla'''
+def iso_utc_now() -> str:
+    #  Devuelve la fecha/hora actual en formato ISO 8601.
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+def iso_date_pase(value: str) -> date:
+    # Parsea "YYYY-MM-DD" a date con un mensaje claro en caso de falla 
     try:
         return datetime.strptime(value, DATE_FMT).date()
     except ValueError as e:
@@ -36,10 +39,47 @@ def normalize_service_tag(tag: str) -> str:
     return tag
 
 class Status(str, Enum):
-    desplegado = 'desplegado'
-    en_stock = 'en_stock'
-    pendiente_disposal = 'pendiente_disposal'
-    disposed = 'disposed'
+    EN_STOCK = "en_stock"
+    DESPLEGADO = "desplegado"
+    ESPERANDO_DISPOSAL = "esperando_disposal"
+    DISPOSED = "disposed"
+    PRESTAMO = "prestamo"
+    PENDIENTE_GARANTIA = "pendiente_garantia"
+    PERDIDO = "perdido"
+
+    @classmethod
+    def list(cls) -> list[str]:
+        """Devuelve la lista de valores legibles de estado."""
+        return [
+            "1. En stock",
+            "2. Desplegado",
+            "3. Esperando Disposal",
+            "4. Disposed",
+            "5. Préstamo",
+            "6. Pendiente garantía",
+            "7. Perdido"
+        ]
+
+    @classmethod
+    def from_choice(cls, choice: str) -> "Status":
+        """Convierte un número o texto ingresado por el usuario a un estado válido."""
+        mapping = {
+            "1": cls.EN_STOCK,
+            "2": cls.DESPLEGADO,
+            "3": cls.ESPERANDO_DISPOSAL,
+            "4": cls.DISPOSED,
+            "5": cls.PRESTAMO,
+            "6": cls.PENDIENTE_GARANTIA,
+            "7": cls.PERDIDO,
+        }
+        if choice in mapping:
+            return mapping[choice]
+        # también permitir que escriban el nombre directamente
+        try:
+            return cls(choice.lower())
+        except ValueError:
+            raise ValueError("Selección de estado no válida.")
+
 
 @dataclass
 class MaintenanceEntry: 
@@ -51,7 +91,7 @@ class MaintenanceEntry:
         self.descripcion = self.descripcion.strip()
         self.tecnico = self.tecnico.strip()
         # Validacion de fecha 
-        iso_date_parse(self.fecha)
+        iso_date_pase(self.fecha)
         if not self.descripcion:
             raise ValueError('La descripcion de mantenimineto no puede estar vacía.')
         if not self.tecnico:
@@ -66,8 +106,8 @@ class PCRecord:
     locacion: str
     rol: str
     historial_mantenimiento: List[MaintenanceEntry] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=iso_utc_now)
+    updated_at: str = field(default_factory=iso_utc_now)
 
     # ------------------------------------------------
     # Validacion y ayudantes
@@ -78,7 +118,7 @@ class PCRecord:
         self.locacion = self.locacion.strip()
         self.rol = self.rol.strip()
         # Validar las fechas
-        iso_date_parse(self.garantia_dell_fin)
+        iso_date_pase(self.garantia_dell_fin)
         # Normalizar el estado (strings compatibles)
         if isinstance(self.estado, str):
             try:
@@ -107,7 +147,7 @@ class PCRecord:
         return PCRecord(**data)
     
     def touch(self):
-        self.updated_at = datetime.now(timezone.utc).isoformat()
+        self.updated_at = iso_utc_now()
     
 
 
@@ -191,10 +231,14 @@ def action_create(store: FileStore) -> None:
             return
         modelo = prompt("Modelo del equipo: ")
         garantia_fin = prompt("Fin de garantía DELL (YYYY-MM-DD): ")
-        iso_date_parse(garantia_fin)
+        iso_date_pase(garantia_fin)
         print("Estados válidos:")
         print("  - desplegado\n  - en_stock\n  - pendiente_disposal\n  - disposed")
-        estado = prompt("Estado: ")
+        print("\nSelecciona un estado para el equipo:")
+        for option in Status.list():
+            print(" ", option)
+        estado_choice = prompt("Opción (1-7): ")
+        estado = Status.from_choice(estado_choice)
         locacion = prompt("Locación/Área: ")
         rol = prompt("Rol (usuario, estación de producción, etc.): ")
         record = PCRecord(
@@ -223,12 +267,17 @@ def action_update(store: FileStore) -> None:
         tag = prompt("Service Tag a actualizar: ")
         record = store.load(tag)
         print("Deja en blanco para mantener el valor actual.")
-        modelo = prompt(f"Modelo [{record.modelo}]: ") or record.modelo
+        modelo = prompt("Modelo del equipo [Desconocido]: ") or "Desconocido"
         garantia = prompt(f"Fin garantía DELL [{record.garantia_dell_fin}]: ") or record.garantia_dell_fin
         # valida si se cambió
         if garantia != record.garantia_dell_fin:
-            iso_date_parse(garantia)
-        estado = prompt(f"Estado [{record.estado.value}]: ") or record.estado.value
+            iso_date_pase(garantia)
+        print(f"\nEstado actual: {record.estado.value}")
+        print("Selecciona nuevo estado o deja vacío para mantener:")
+        for option in Status.list():
+            print(" ", option)
+        estado_choice = prompt("Opción (1-7): ")
+        estado = Status.from_choice(estado_choice) if estado_choice else record.estado
         locacion = prompt(f"Locación [{record.locacion}]: ") or record.locacion
         rol = prompt(f"Rol [{record.rol}]: ") or record.rol
         updated = PCRecord(
@@ -274,7 +323,7 @@ def action_add_maintenance(store: FileStore) -> None:
         record = store.load(tag)
         print("\n[Nueva entrada de mantenimiento]")
         fecha = prompt("Fecha (YYYY-MM-DD): ")
-        iso_date_parse(fecha)
+        iso_date_pase(fecha)
         tecnico = prompt("Técnico: ")
         descripcion = prompt("Descripción: ")
         entry = MaintenanceEntry(descripcion=descripcion, fecha=fecha, tecnico=tecnico)
@@ -284,6 +333,29 @@ def action_add_maintenance(store: FileStore) -> None:
     except Exception as e:
         print(f"Error al agregar mantenimiento: {e}")
 
+def export_all(store: FileStore, out_path="inventario_export.jsonl"):
+    with open(out_path, "w", encoding="utf-8") as out:
+        for r in store.list_all():
+            out.write(r.to_json())
+            out.write("\n")
+    print(f"✔ Exportado a {out_path}")
+
+def import_all(store: FileStore, in_path="inventario_export.jsonl"):
+    ok, fail = 0, 0
+    with open(in_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                rec = PCRecord.from_json(line)
+                store.save(rec)
+                ok += 1
+            except Exception as e:
+                print(f"[WARN] No se pudo importar: {e}")
+                fail += 1
+    print(f"✔ Importados: {ok}. Fallidos: {fail}.")
+
+
 MENU = {
     "1": ("Crear PC", action_create),
     "2": ("Leer PC (por Service Tag)", action_read),
@@ -291,6 +363,8 @@ MENU = {
     "4": ("Eliminar PC", action_delete),
     "5": ("Listar PCs", action_list),
     "6": ("Agregar entrada de mantenimiento", action_add_maintenance),
+    "7": ("Exportar todo (JSONL)", lambda s: export_all(s)),
+    "8": ("Importar todo (JSONL)", lambda s: import_all(s)),
     "0": ("Salir", None),
 }
 

@@ -1,0 +1,11 @@
+{
+  "service_tag": "DELL006",
+  "modelo": "TEST PC",
+  "garantia_dell_fin": "2027-12-18",
+  "estado": "en_stock",
+  "locacion": "IT",
+  "rol": "usuario",
+  "historial_mantenimiento": [],
+  "created_at": "2025-10-31T19:54:00+00:00",
+  "updated_at": "2025-10-31T19:54:00+00:00"
+}
