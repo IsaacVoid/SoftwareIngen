@@ -338,7 +338,7 @@ def export_all(store: FileStore, out_path="inventario_export.jsonl"):
         for r in store.list_all():
             out.write(r.to_json())
             out.write("\n")
-    print(f"✔ Exportado a {out_path}")
+    print(f"Exportado a {out_path}")
 
 def import_all(store: FileStore, in_path="inventario_export.jsonl"):
     ok, fail = 0, 0
@@ -353,7 +353,7 @@ def import_all(store: FileStore, in_path="inventario_export.jsonl"):
             except Exception as e:
                 print(f"[WARN] No se pudo importar: {e}")
                 fail += 1
-    print(f"✔ Importados: {ok}. Fallidos: {fail}.")
+    print(f"Importados: {ok}. Fallidos: {fail}.")
 
 
 MENU = {

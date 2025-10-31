@@ -1,0 +1,17 @@
+{
+  "service_tag": "DELL009",
+  "modelo": "TEST PC2",
+  "garantia_dell_fin": "2027-06-15",
+  "estado": "en_stock",
+  "locacion": "IT",
+  "rol": "estacion de produción",
+  "historial_mantenimiento": [
+    {
+      "descripcion": "Actualización de estado de mantenimiento tras cambios en el sistema.",
+      "fecha": "2025-10-31",
+      "tecnico": "Isaac Espinosa"
+    }
+  ],
+  "created_at": "2025-10-31T20:42:44+00:00",
+  "updated_at": "2025-10-31T20:43:44+00:00"
+}

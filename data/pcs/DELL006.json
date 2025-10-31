@@ -5,7 +5,13 @@
   "estado": "en_stock",
   "locacion": "IT",
   "rol": "usuario",
-  "historial_mantenimiento": [],
+  "historial_mantenimiento": [
+    {
+      "descripcion": "Prueba de mantenimiento en el equipo tras actualizaciones del sistema",
+      "fecha": "2025-10-31",
+      "tecnico": "Isaac"
+    }
+  ],
   "created_at": "2025-10-31T19:54:00+00:00",
-  "updated_at": "2025-10-31T19:54:00+00:00"
+  "updated_at": "2025-10-31T20:01:12+00:00"
 }
